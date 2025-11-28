@@ -96,13 +96,13 @@ function handle_command_options() {
             if [ "$2" ]; then
                 echo "$2" | grep -Eq "\(|\)|\[|\]|\{|\}"
                 if [ $? -eq 0 ]; then
-                    command_error "$2" "$(msg "error.cmd.options.validAddress")"
+                    command_error "$2" "a valid address"
                 else
                     SOURCE="$(echo "$2" | sed -e 's,^http[s]\?://,,g' -e 's,/$,,')"
                     shift
                 fi
             else
-                command_error "$1" "$(msg "error.cmd.options.sourceAddress")"
+                command_error "$1" "mirror address"
             fi
             ;;
         ## 指定 Docker Registry 仓库地址
@@ -110,13 +110,13 @@ function handle_command_options() {
             if [ "$2" ]; then
                 echo "$2" | grep -Eq "\(|\)|\[|\]|\{|\}"
                 if [ $? -eq 0 ]; then
-                    command_error "$2" "$(msg "error.cmd.options.validAddress")"
+                    command_error "$2" "a valid address"
                 else
                     SOURCE_REGISTRY="$(echo "$2" | sed -e 's,^http[s]\?://,,g' -e 's,/$,,')"
                     shift
                 fi
             else
-                command_error "$1" "$(msg "error.cmd.options.registryAddress")"
+                command_error "$1" "registry mirror address"
             fi
             ;;
         ## 指定 Docker CE 软件源仓库
@@ -125,7 +125,7 @@ function handle_command_options() {
                 SOURCE_BRANCH="$2"
                 shift
             else
-                command_error "$1" "$(msg "error.cmd.options.sourceRepository")"
+                command_error "$1" "mirror repository"
             fi
             ;;
         ## 指定 Docker CE 软件源仓库版本
@@ -136,10 +136,10 @@ function handle_command_options() {
                     SOURCE_BRANCH_VERSION="$2"
                     shift
                 else
-                    command_error "$2" "$(msg "error.cmd.options.validVersion")"
+                    command_error "$2" "a valid version number"
                 fi
             else
-                command_error "$1" "$(msg "error.cmd.options.ceRepositoryVersion")"
+                command_error "$1" "Docker CE mirror repository version"
             fi
             ;;
         ## 指定 Debian 版本代号
@@ -148,7 +148,7 @@ function handle_command_options() {
                 DEBIAN_CODENAME="$2"
                 shift
             else
-                command_error "$1" "$(msg "error.cmd.options.codename")"
+                command_error "$1" "version codename"
             fi
             ;;
         ## Web 协议（HTTP/HTTPS）
@@ -160,11 +160,11 @@ function handle_command_options() {
                     shift
                     ;;
                 *)
-                    command_error "$2" "$(msg "error.cmd.options.protocol")"
+                    command_error "$2" " http or https "
                     ;;
                 esac
             else
-                command_error "$1" "$(msg "error.cmd.options.needProtocol")"
+                command_error "$1" " Web protocol(http/https)"
             fi
             ;;
         *)
@@ -181,23 +181,23 @@ function output_error() {
 }
 
 function command_error() {
-    local tmp_text="$(msg "error.cmd.options.needConfirm")"
+    local tmp_text="Please confirm and re-enter"
     if [[ "${2}" ]]; then
-        tmp_text="$(msg "error.cmd.options.needSpecify" "${2}")"
+        tmp_text="Please specify ${2} after this option"
     fi
-    output_error "$(msg "error.cmd.options.invalid" "${BLUE}$1${PLAIN}" "${tmp_text}")"
+    output_error "Command option ${BLUE}$1${PLAIN} is invalid, ${tmp_text}!"
 }
 
 function unsupport_system_error() {
     if [[ "${2}" ]]; then
-        output_error "$(msg "error.unsupportSystem2" "${1}")\n\n${BLUE}$2${PLAIN}"
+        output_error "Unsupported operating system (${1}), please install manually with commands:\n\n${BLUE}$2${PLAIN}"
     else
-        output_error "$(msg "error.unsupportSystem1" "${1}")"
+        output_error "Unsupported operating system (${1})"
     fi
 }
 
 function input_error() {
-    echo -e "\n$WARN $(msg "error.input" "${1}")"
+    echo -e "\n$WARN Input error, ${1}!"
 }
 
 function command_exists() {
@@ -210,7 +210,7 @@ function permission_judgment() {
         if command_exists sudo; then
             change_cmd="sudo -i"
         fi
-        output_error "$(msg "error.needRoot" "${BLUE}${change_cmd}${PLAIN}")"
+        output_error "Insufficient privileges, please run this script as root. Switch command: ${BLUE}${change_cmd}${PLAIN}"
     fi
 }
 
@@ -220,7 +220,7 @@ function get_os_release_value() {
 
 function collect_system_info() {
     if [ ! -s "${File_LinuxRelease}" ]; then
-        unsupport_system_error "$(msg "error.unknownSystem")"
+        unsupport_system_error "Unknown system"
     fi
     ## 定义系统名称
     SYSTEM_NAME="$(get_os_release_value NAME)"
@@ -251,7 +251,7 @@ function collect_system_info() {
             SYSTEM_FACTIONS="${SYSTEM_KYLIN_SERVER}"
         fi
     else
-        unsupport_system_error "$(msg "error.unknownSystem")"
+        unsupport_system_error "Unknown system"
     fi
     ## 判定系统类型、版本、版本号
     case "${SYSTEM_FACTIONS}" in
@@ -312,10 +312,10 @@ function collect_system_info() {
         DEVICE_ARCH="s390x"
         ;;
     i386 | i686)
-        output_error "$(msg "error.unsupportX86_32")"
+        output_error "Docker Engine does not support installation on x86_32 architecture!"
         ;;
     *)
-        output_error "$(msg "error.unknownArch" "${DEVICE_ARCH_RAW}")"
+        output_error "Unknown system architecture: ${DEVICE_ARCH_RAW}"
         ;;
     esac
     ## 定义软件源仓库名称
@@ -354,7 +354,7 @@ function collect_system_info() {
                 ;;
             esac
             if [[ "${DEVICE_ARCH_RAW}" == "s390x" ]]; then
-                output_error "$(msg "error.unsupportS390x")"
+                output_error "Please refer to RHEL distribution announcement for s390x support"
             fi
             ;;
         esac
@@ -362,10 +362,10 @@ function collect_system_info() {
     ## 定义软件源更新文字
     case "${SYSTEM_FACTIONS}" in
     "${SYSTEM_DEBIAN}" | "${SYSTEM_OPENKYLIN}")
-        SYNC_MIRROR_TEXT="$(msg "source.sync.text1")"
+        SYNC_MIRROR_TEXT="Update APT package index"
         ;;
     "${SYSTEM_REDHAT}" | "${SYSTEM_OPENEULER}" | "${SYSTEM_OPENCLOUDOS}" | "${SYSTEM_ANOLISOS}" | "${SYSTEM_TENCENTOS}" | "${SYSTEM_KYLIN_SERVER}")
-        SYNC_MIRROR_TEXT="$(msg "source.sync.text2")"
+        SYNC_MIRROR_TEXT="Generate mirror cache"
         ;;
     esac
 }
@@ -400,7 +400,7 @@ function install_dependency_packages() {
         eval "${cmd}"
     done
     if [ $? -ne 0 ]; then
-        output_error "$(msg "error.sync" "${SYNC_MIRROR_TEXT}" "${BLUE}${package_manager}${PLAIN}")"
+        output_error "${SYNC_MIRROR_TEXT} failed. Please fix system software sources (package repositories) so the ${BLUE}${package_manager}${PLAIN} package manager is available!"
     fi
 
     commands=()
@@ -440,7 +440,7 @@ function configure_docker_ce_mirror() {
         install -m 0755 -d /etc/apt/keyrings
         curl -fsSL "${WEB_PROTOCOL}://${SOURCE}/linux/${SOURCE_BRANCH}/gpg" -o $file_keyring >/dev/null
         if [ $? -ne 0 ]; then
-            output_error "$(msg "error.downloadGPG")"
+            output_error "GPG key download failed, please check network or switch Docker CE mirror and retry!"
         fi
         chmod a+r $file_keyring
         ## 添加源
@@ -616,7 +616,7 @@ function install_docker_engine() {
         for cmd in "${commands[@]}"; do
             eval "${cmd}"
         done
-        [ $? -ne 0 ] && output_error "$(msg "error.installDockerEngineFailed")"
+        [ $? -ne 0 ] && output_error "Docker Engine installation failed!"
     }
 
     uninstall_original_version
@@ -629,7 +629,7 @@ function change_docker_registry_mirror() {
     if [ -d "${Dir_Docker}" ] && [ -e "${File_DockerConfig}" ]; then
         echo ''
         cp -rvf $File_DockerConfig $File_DockerConfigBackup 2>&1
-        echo -e "\n$COMPLETE $(msg "info.backuped.dockerConfig")"
+        echo -e "\n$COMPLETE Original Docker config file has been backed up"
         sleep 2s
     else
         mkdir -p $Dir_Docker >/dev/null 2>&1
@@ -674,7 +674,7 @@ function check_installed_result() {
             echo -e "  $(docker compose version 2>&1)"
             # echo -e "\n$COMPLETE 安装完成"
         else
-            echo -e "\n$FAIL $(msg "result.install.failed")"
+            echo -e "\n$FAIL Installation failed"
             local source_file package_manager
             case "${SYSTEM_FACTIONS}" in
             "${SYSTEM_DEBIAN}" | "${SYSTEM_OPENKYLIN}")
@@ -686,8 +686,8 @@ function check_installed_result() {
                 package_manager="$(get_package_manager)"
                 ;;
             esac
-            echo -e "\n$(msg "result.install.checkSourceFile" "cat ${source_file}")"
-            echo -e "$(msg "result.install.manuallyExecCmd" "${package_manager} install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin")\n"
+            echo -e "\nCheck source file: cat ${source_file}"
+            echo -e "Please try manually executing installation command: ${package_manager} install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin\n"
             exit 1
         fi
         if [[ "$(systemctl is-active docker 2>/dev/null)" != "active" ]]; then
@@ -697,18 +697,18 @@ function check_installed_result() {
             systemctl enable --now docker >/dev/null 2>&1
             sleep 2
             if [[ "$(systemctl is-active docker)" != "active" ]]; then
-                echo -e "\n$WARN $(msg "result.install.notRunning")"
+                echo -e "\n$WARN Detected Docker service startup error, try running this script again"
                 local start_cmd
                 if command_exists systemctl; then
                     start_cmd="systemctl start docker"
                 else
                     start_cmd="service docker start"
                 fi
-                echo -e "\n$TIP $(msg "result.install.manuallyRun" "${BLUE}${start_cmd}${PLAIN}")"
+                echo -e "\n$TIP Please execute ${BLUE}${start_cmd}${PLAIN} command to try starting or investigate error cause"
             fi
         fi
     else
-        echo -e "\n$FAIL $(msg "result.install.failed")"
+        echo -e "\n$FAIL Installation failed"
     fi
 }
 
@@ -732,178 +732,5 @@ function get_package_manager() {
 
 ##############################################################################
 
-declare -A MESSAGE_CONTENTS
-
-function msg() {
-    local key="$1"
-    shift
-    local text="${MESSAGE_CONTENTS[${key}]}"
-    if [[ -z "${text}" ]]; then
-        echo "${key}"
-        return
-    fi
-    while [[ $# -gt 0 ]]; do
-        if [[ "${text}" == *"{}"* ]]; then
-            text="${text/\{\}/$1}"
-        else
-            break
-        fi
-        shift
-    done
-    echo "${text}"
-}
-
-function msg_pack_en() {
-    MESSAGE_CONTENTS=(
-        ['start.welcome']='Docker installation & mirror switcher'
-        ['start.runtimeEnv']='Runtime Env'
-        ['start.dateTime']='System Time'
-        ['end.moreInfo']='Script execution completed, visit our website for more tutorials'
-        ['end.sponsorAds']='[Sponsor Ads]'
-        ['error.cmd.options.needConfirm']='Please confirm and re-enter'
-        ['error.cmd.options.needSpecify']='Please specify {} after this option'
-        ['error.cmd.options.invalid']='Command option {} is invalid, {}!'
-        ['error.cmd.options.validAddress']='a valid address'
-        ['error.cmd.options.sourceAddress']='mirror address'
-        ['error.cmd.options.registryAddress']='registry mirror address'
-        ['error.cmd.options.sourceRepository']='mirror repository'
-        ['error.cmd.options.validVersion']='a valid version number'
-        ['error.cmd.options.ceRepositoryVersion']='Docker CE mirror repository version'
-        ['error.cmd.options.version']='version number'
-        ['error.cmd.options.codename']='version codename'
-        ['error.cmd.options.boolean']=' true or false '
-        ['error.cmd.options.protocol']=' http or https '
-        ['error.cmd.options.needProtocol']=' Web protocol(http/https)'
-        ['error.cmd.options.validLangKey']='A valid language ID '
-        ['error.cmd.options.langKey']='language ID '
-        ['error.unsupportSystem1']='Unsupported operating system ({})'
-        ['error.unsupportSystem2']='Unsupported operating system ({}), please install manually with commands:'
-        ['error.unknownSystem']='Unknown system'
-        ['error.unsupportX86_32']='Docker Engine does not support installation on x86_32 architecture!'
-        ['error.unknownArch']='Unknown system architecture: {}'
-        ['error.unsupportS390x']='Please refer to RHEL distribution announcement for s390x support'
-        ['error.input']='Input error, {}!'
-        ['error.needRoot']='Insufficient privileges, please run this script as root. Switch command: {}'
-        ['error.sync']='{} failed. Please fix system software sources (package repositories) so the {} package manager is available!'
-        ['error.downloadGPG']='GPG key download failed, please check network or switch Docker CE mirror and retry!'
-        ['error.queryVersionFailed']='Failed to query Docker Engine version list!'
-        ['error.designatedVersion']='Specified Docker Engine version does not exist or is not supported for installation!'
-        ['error.invalidVersion']='Please enter a valid version number!'
-        ['error.reEnter']='Input error, please re-enter!'
-        ['error.installDockerEngineFailed']='Docker Engine installation failed!'
-        ['error.installPackageFailed']='Package {} installation failed, please install manually and rerun script!'
-        ['error.defaultBehavior.https']='Using HTTPS protocol by default'
-        ['error.defaultBehavior.noClose']='Not closing by default'
-        ['error.defaultBehavior.installLatest']='Installing latest version by default'
-        ['error.defaultBehavior.noOverwrite']='Not overwriting by default'
-        ['error.defaultBehavior.noUseIntranetSource']='Not using intranet address by default'
-        ['warn.usedIntranetSource']='Switched to intranet-only address, use only in specific environments!'
-        ['warn.needValidNumberIndex']='Please enter a valid number index!'
-        ['warn.needInputNumberIndex']='Please enter a number index!'
-        ['warn.needManuallyDeleteConfig']='Please manually delete {} configuration in {} and restart service {}'
-        ['tip.skipInstallDockerEngine']='Detected Docker Engine is already installed with latest version, skipping installation'
-        ['info.backuped.dockerConfig']='Original Docker config file has been backed up'
-        ['interaction.source.type.public']='Public'
-        ['interaction.source.type.intranet']='Intranet'
-        ['interaction.source.type.select']='Please select network address (access method) for Docker CE mirror:'
-        ['interaction.source.type.usePublicAddress']='Use public network address for Docker CE mirror by default, continue'
-        ['interaction.source.dockerCE.select']='Please select the Docker CE mirror you want to use:'
-        ['interaction.source.dockerCE.selectAndInput']='Please select and enter the Docker CE mirror you want to use'
-        ['interaction.source.dockerRegistry.select']='Please select the Docker Registry mirror you want to use:'
-        ['interaction.source.dockerRegistry.selectAndInput']='Please select and enter the Docker Registry mirror you want to use'
-        ['interaction.protocol.select']='Please select network protocol for Docker CE mirror:'
-        ['interaction.protocol.useHttp']='Use HTTP protocol for Docker CE mirror'
-        ['interaction.firewall.close']='Close system firewall and SELinux'
-        ['interaction.install.selectVersion']='Please select the version you want to install:'
-        ['interaction.install.selectedVersion']='Specified installation version:'
-        ['interaction.install.selectedTitle']='Please select the version to install, e.g.: {}'
-        ['interaction.install.inputVersion']='Based on the list above, please select and enter the specific version you want to install:'
-        ['interaction.install.latestVersion']='Install latest version of Docker Engine'
-        ['interaction.backup.skipOverwrite']='Detected existing backup of Docker config file, skip overwriting backup'
-        ['interaction.common.tip']='Tip'
-        ['interaction.common.operationCanceled']='Operation canceled'
-        ['interaction.common.yes']='Yes'
-        ['interaction.common.no']='No'
-        ['work.installDependents']='Install environment packages'
-        ['work.installDockerEngine']='Install Docker Engine'
-        ['source.sync.text1']='Update APT package index'
-        ['source.sync.text2']='Generate mirror cache'
-        ['result.install.failed']='Installation failed'
-        ['result.install.checkSourceFile']='Check source file:'
-        ['result.install.manuallyExecCmd']='Please try manually executing installation command: {}'
-        ['result.install.notRunning']='Detected Docker service startup error, try running this script again'
-        ['result.install.manuallyRun']='Please execute {} command to try starting or investigate error cause'
-        ['result.registry.success']='Registry mirror replaced successfully'
-        ['result.registry.dockerEngineNotExsit']='Docker Engine is not installed yet, please remove {} command option and rerun script!'
-        ['commands.help']='Command options(name/meaning/value):
-
-  --source                  Specify Docker CE mirror address (domain or IP)           address
-  --source-registry         Specify Docker Registry mirror address (domain or IP)     address
-  --branch                  Specify Docker CE mirror repository (path)                repo name
-  --branch-version          Specify Docker CE mirror repository version               version
-  --designated-version      Specify Docker Engine installation version                version
-  --codename                Specify Debian-based OS codename                          codename
-  --protocol                Specify Web protocol for Docker CE mirror                 http or https
-  --use-intranet-source     Prefer intranet Docker CE mirror address                  true or false
-  --install-latest          Whether to install the latest Docker Engine               true or false
-  --close-firewall          Whether to disable the firewall                           true or false
-  --clean-screen            Whether to clear the screen before running                true or false
-  --lang                    Specify the language of the script output                 language
-  --only-registry           Only switch registry mirror mode                          none
-  --ignore-backup-tips      Ignore backup overwrite prompt (do not backup)            none
-  --pure-mode               Pure mode, minimal output                                 none
-  --help                    Show help menu                                            none
-
-Issue Report {}'
-        ['mirrors.dockerCE.0']='Alibaba Cloud'
-        ['mirrors.dockerCE.1']='Tencent Cloud'
-        ['mirrors.dockerCE.2']='Huawei Cloud'
-        ['mirrors.dockerCE.3']='China Mobile Cloud'
-        ['mirrors.dockerCE.4']='NetEase'
-        ['mirrors.dockerCE.5']='Volcengine'
-        ['mirrors.dockerCE.6']='Microsoft Azure China'
-        ['mirrors.dockerCE.7']='Tsinghua University'
-        ['mirrors.dockerCE.8']='Peking University'
-        ['mirrors.dockerCE.9']='Zhejiang University'
-        ['mirrors.dockerCE.10']='Nanjing University'
-        ['mirrors.dockerCE.11']='Shanghai Jiao Tong University'
-        ['mirrors.dockerCE.12']='Chongqing University of Posts and Telecommunications'
-        ['mirrors.dockerCE.13']='University of Science and Technology of China'
-        ['mirrors.dockerCE.14']='Institute of Software, Chinese Academy of Sciences'
-        ['mirrors.dockerCE.15']='Official Source'
-        ['mirrors.registry.0']='Millisecond Mirror (recommended)'
-        ['mirrors.registry.1']='Docker Proxy'
-        ['mirrors.registry.2']='DaoCloud'
-        ['mirrors.registry.3']='1Panel Mirror'
-        ['mirrors.registry.4']='Alibaba Cloud (Hangzhou)'
-        ['mirrors.registry.5']='Alibaba Cloud (Shanghai)'
-        ['mirrors.registry.6']='Alibaba Cloud (Qingdao)'
-        ['mirrors.registry.7']='Alibaba Cloud (Beijing)'
-        ['mirrors.registry.8']='Alibaba Cloud (Zhangjiakou)'
-        ['mirrors.registry.9']='Alibaba Cloud (Hohhot)'
-        ['mirrors.registry.10']='Alibaba Cloud (Ulanqab)'
-        ['mirrors.registry.11']='Alibaba Cloud (Shenzhen)'
-        ['mirrors.registry.12']='Alibaba Cloud (Heyuan)'
-        ['mirrors.registry.13']='Alibaba Cloud (Guangzhou)'
-        ['mirrors.registry.14']='Alibaba Cloud (Chengdu)'
-        ['mirrors.registry.15']='Alibaba Cloud (Hong Kong)'
-        ['mirrors.registry.16']='Alibaba Cloud (Japan - Tokyo)'
-        ['mirrors.registry.17']='Alibaba Cloud (Singapore)'
-        ['mirrors.registry.18']='Alibaba Cloud (Malaysia - Kuala Lumpur)'
-        ['mirrors.registry.19']='Alibaba Cloud (Indonesia - Jakarta)'
-        ['mirrors.registry.20']='Alibaba Cloud (Germany - Frankfurt)'
-        ['mirrors.registry.21']='Alibaba Cloud (UK - London)'
-        ['mirrors.registry.22']='Alibaba Cloud (US West - Silicon Valley)'
-        ['mirrors.registry.23']='Alibaba Cloud (US East - Virginia)'
-        ['mirrors.registry.24']='Alibaba Cloud (UAE - Dubai)'
-        ['mirrors.registry.25']='Tencent Cloud'
-        ['mirrors.registry.26']='Google Cloud (North America)'
-        ['mirrors.registry.27']='Google Cloud (Asia)'
-        ['mirrors.registry.28']='Google Cloud (Europe)'
-        ['mirrors.registry.29']='Official Docker Hub'
-    )
-}
-
-msg_pack_en
 handle_command_options "$@"
 main
