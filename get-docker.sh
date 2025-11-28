@@ -94,38 +94,6 @@ function handle_command_options() {
                 command_error "$1" "registry mirror address"
             fi
             ;;
-        ## 指定 Docker CE 软件源仓库
-        --branch)
-            if [ "$2" ]; then
-                SOURCE_BRANCH="$2"
-                shift
-            else
-                command_error "$1" "mirror repository"
-            fi
-            ;;
-        ## 指定 Docker CE 软件源仓库版本
-        --branch-version)
-            if [ "$2" ]; then
-                echo "$2" | grep -Eq "^[0-9]{1,2}$"
-                if [ $? -eq 0 ]; then
-                    SOURCE_BRANCH_VERSION="$2"
-                    shift
-                else
-                    command_error "$2" "a valid version number"
-                fi
-            else
-                command_error "$1" "Docker CE mirror repository version"
-            fi
-            ;;
-        ## 指定 Debian 版本代号
-        --codename)
-            if [ "$2" ]; then
-                DEBIAN_CODENAME="$2"
-                shift
-            else
-                command_error "$1" "version codename"
-            fi
-            ;;
         ## Web 协议（HTTP/HTTPS）
         --protocol)
             if [ "$2" ]; then
@@ -227,7 +195,7 @@ function collect_system_info() {
     "${SYSTEM_DEBIAN}" | "${SYSTEM_OPENKYLIN}")
         if command_exists lsb_release; then
             SYSTEM_JUDGMENT="$(lsb_release -is)"
-            SYSTEM_VERSION_CODENAME="${DEBIAN_CODENAME:-"$(lsb_release -cs)"}"
+            SYSTEM_VERSION_CODENAME="$(lsb_release -cs)"
         else
             ## https://codeberg.org/gioele/lsb-release-minimal
             SYSTEM_JUDGMENT="${SYSTEM_ID^}"
@@ -236,7 +204,7 @@ function collect_system_info() {
                     SYSTEM_JUDGMENT="${SYSTEM_NAME}"
                 fi
             fi
-            SYSTEM_VERSION_CODENAME="${DEBIAN_CODENAME:-"$(get_os_release_value VERSION_CODENAME)"}"
+            SYSTEM_VERSION_CODENAME="$(get_os_release_value VERSION_CODENAME)"
         fi
         ;;
     "${SYSTEM_REDHAT}")
@@ -265,46 +233,43 @@ function collect_system_info() {
         ;;
     esac
     ## 定义软件源仓库名称
-    if [[ -z "${SOURCE_BRANCH}" ]]; then
-        case "${SYSTEM_FACTIONS}" in
-        "${SYSTEM_DEBIAN}" | "${SYSTEM_OPENKYLIN}")
-            local debian_codename_latest="trixie"
-            case "${SYSTEM_JUDGMENT}" in
-            "${SYSTEM_DEBIAN}")
-                SOURCE_BRANCH="debian"
-                ;;
-            "${SYSTEM_UBUNTU}" | "${SYSTEM_ZORIN}")
-                SOURCE_BRANCH="ubuntu"
-                ;;
-            "${SYSTEM_OPENKYLIN}")
-                SOURCE_BRANCH="debian"
-                SOURCE_BRANCH_CODENAME="${debian_codename_latest}"
-                ;;
-            *)
-                # 其余 Debian 系衍生操作系统
-                SOURCE_BRANCH="debian"
-                SOURCE_BRANCH_CODENAME="bookworm"
-                ;;
-            esac
+    case "${SYSTEM_FACTIONS}" in
+    "${SYSTEM_DEBIAN}" | "${SYSTEM_OPENKYLIN}")
+        case "${SYSTEM_JUDGMENT}" in
+        "${SYSTEM_DEBIAN}")
+            SOURCE_BRANCH="debian"
             ;;
-        "${SYSTEM_REDHAT}" | "${SYSTEM_OPENEULER}" | "${SYSTEM_OPENCLOUDOS}" | "${SYSTEM_ANOLISOS}" | "${SYSTEM_TENCENTOS}" | "${SYSTEM_KYLIN_SERVER}")
-            case "${SYSTEM_JUDGMENT}" in
-            "${SYSTEM_FEDORA}")
-                SOURCE_BRANCH="fedora"
-                ;;
-            "${SYSTEM_RHEL}")
-                SOURCE_BRANCH="rhel"
-                ;;
-            *)
-                SOURCE_BRANCH="centos"
-                ;;
-            esac
-            if [[ "${DEVICE_ARCH_RAW}" == "s390x" ]]; then
-                output_error "Please refer to RHEL distribution announcement for s390x support"
-            fi
+        "${SYSTEM_UBUNTU}" | "${SYSTEM_ZORIN}")
+            SOURCE_BRANCH="ubuntu"
+            ;;
+        "${SYSTEM_OPENKYLIN}")
+            SOURCE_BRANCH="debian"
+            SOURCE_BRANCH_CODENAME="trixie"
+            ;;
+        *)
+            # 其余 Debian 系衍生操作系统
+            SOURCE_BRANCH="debian"
+            SOURCE_BRANCH_CODENAME="bookworm"
             ;;
         esac
-    fi
+        ;;
+    "${SYSTEM_REDHAT}" | "${SYSTEM_OPENEULER}" | "${SYSTEM_OPENCLOUDOS}" | "${SYSTEM_ANOLISOS}" | "${SYSTEM_TENCENTOS}" | "${SYSTEM_KYLIN_SERVER}")
+        case "${SYSTEM_JUDGMENT}" in
+        "${SYSTEM_FEDORA}")
+            SOURCE_BRANCH="fedora"
+            ;;
+        "${SYSTEM_RHEL}")
+            SOURCE_BRANCH="rhel"
+            ;;
+        *)
+            SOURCE_BRANCH="centos"
+            ;;
+        esac
+        if [[ "${DEVICE_ARCH_RAW}" == "s390x" ]]; then
+            output_error "Please refer to RHEL distribution announcement for s390x support"
+        fi
+        ;;
+    esac
     ## 定义软件源更新文字
     case "${SYSTEM_FACTIONS}" in
     "${SYSTEM_DEBIAN}" | "${SYSTEM_OPENKYLIN}")
@@ -375,7 +340,7 @@ function configure_docker_ce_mirror() {
         chmod a+r $file_keyring
         ## 添加源
         [ -d "${Dir_AptAdditionalSources}" ] || mkdir -p $Dir_AptAdditionalSources
-        echo "deb [arch=$(dpkg --print-architecture) signed-by=${file_keyring}] ${WEB_PROTOCOL}://${SOURCE}/linux/${SOURCE_BRANCH} ${DEBIAN_CODENAME:-"${SOURCE_BRANCH_CODENAME:-"${SYSTEM_VERSION_CODENAME}"}"} stable" >$File_DockerSourceList
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=${file_keyring}] ${WEB_PROTOCOL}://${SOURCE}/linux/${SOURCE_BRANCH} ${SOURCE_BRANCH_CODENAME:-${SYSTEM_VERSION_CODENAME}} stable" >$File_DockerSourceList
         apt-get update
         ;;
     "${SYSTEM_REDHAT}" | "${SYSTEM_OPENEULER}" | "${SYSTEM_OPENCLOUDOS}" | "${SYSTEM_ANOLISOS}" | "${SYSTEM_TENCENTOS}" | "${SYSTEM_KYLIN_SERVER}")
@@ -394,9 +359,8 @@ function configure_docker_ce_mirror() {
             -e "s|http[s]\?://.*/linux/${SOURCE_BRANCH}/|${WEB_PROTOCOL}://${SOURCE}/linux/${SOURCE_BRANCH}/|g" \
             -i $File_DockerRepo
         ## 处理版本号
-        local target_version="${SOURCE_BRANCH_VERSION}"
-        if [[ -z "${target_version}" ]] && [[ "${SYSTEM_JUDGMENT}" != "${SYSTEM_FEDORA}" ]]; then
-            target_version="${SYSTEM_VERSION_ID_MAJOR}"
+        if [[ "${SYSTEM_JUDGMENT}" != "${SYSTEM_FEDORA}" ]]; then
+            local target_version="${SYSTEM_VERSION_ID_MAJOR}"
             case "${SYSTEM_VERSION_ID_MAJOR}" in
             7 | 8 | 9 | 10) ;;
             *)
@@ -434,8 +398,6 @@ function configure_docker_ce_mirror() {
                 fi
                 ;;
             esac
-        fi
-        if [[ "${target_version}" ]]; then
             sed -e "s|\$releasever|${target_version}|g" -i $File_DockerRepo
             ${package_manager} makecache
         fi
